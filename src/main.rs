@@ -1,5 +1,9 @@
 // internal imports
 pub mod structures;
+pub mod config_parser;
+
+use structures::{Config, ConfigType};
+use config_parser::{parse_configuration,print_config};
 
 use std::error::Error;
 // external import
@@ -13,42 +17,19 @@ use std::{fs, option, result};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use regex::Regex;
-use structures::{Config, ConfigType};
 
-// constants
-// **FIXME** --> transport to config-parser module! 
-const CONFIG_START: &str = "conf-start:";
-const CONFIG_END: &str =  "conf-end:";
-const CONF_EXCLUDED_FILES: &str = "excluded_directories";
-const CONF_PREFIXES: &str = "prefixes_for_headlines";
-
-fn print_config(configs: Vec<Config>) -> () { 
-    for config in configs{
-
-        let as_string = match config.conf_type{
-            ConfigType::ExcludedPaths => "Excluded paths",
-            ConfigType::PrefixHeadline => "headline prefixes"
-        };
-        println!("extracted config of type: {as_string}");
-        for entry in config.collection_of_options{
-            print!("{entry}");
-        };
-        println!();
-    }
-    println!();
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Insert a given path to traverse its directory and all contained files and directories");
 
-    let configurations = parse_configuration()?;
-    // DEBUG
+    let configurations = wrapper_parse_config()?;
+    // Debug 
     print_config(configurations);
 
     let file_path = enforce_filepath(request_filepath);
     let save_path:PathBuf = enforce_filepath(request_file_to_save_to);
         
-    display_folder(&file_path);
+    // display_folder(&file_path);
     let parsed_dir = collect_dir_structure(file_path, &None);
     match parsed_dir {
         Ok(dir) => {
@@ -66,7 +47,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// opens and converts file to vector of configurations, or returns error
+/// 
+fn wrapper_parse_config() -> Result<Vec<Config>, Box<dyn Error>>{
+
+    let path:PathBuf = PathBuf::from("/home/evelyn/Nextcloud/Notes/webpage_config.md");
+    let file_reader = read_from_file(path)?;
+    parse_configuration(file_reader)
+}
+
 /// DEBUG-FUNCTION
+/// 
 /// helps to display / traverse content of given path
 /// prints accordingly
 fn display_folder(proposed_path:&PathBuf) -> Result<(),Box<dyn std::error::Error>>  { 
@@ -331,107 +322,4 @@ fn read_from_file(file_path:PathBuf) -> Result<BufReader<File>,Box<dyn std::erro
 
     let reader = BufReader::new(file);
     Ok(reader)
-}
-
-/// FIXME naming lol
-/// creates Config from given param
-/// if no conf-end was received --> will return error, signaling wrong formatting
-fn assemble_single_config(config_type:ConfigType,param_vec:Vec<String>) -> Result<Config,Box<dyn Error>> {
-
-    let resulting_params: Vec<String> = param_vec
-                            .iter()
-                            .take_while(| &val| val != CONFIG_END)
-                            .map(|val| val.to_string())
-                            .collect();
-    if resulting_params.is_empty() { 
-        return Err("no params found before conf-end: --> typo?".into())
-    };
-    // processed correctly 
-    Ok(Config{
-        conf_type: config_type,
-        collection_of_options: resulting_params
-    })
-}
-
-
-/// fn construct_excluded_files(&filtered_config:Iterator<Item = <Result<>>) -> structures::ExcludedFiles {
-/// with given iterator we search for "start" and end 
-/// }
-/// FIXME Improve structure of collecting 
-fn vec_to_config(config_as_list:Vec<String>) -> Result<Vec<structures::Config>,Box<dyn Error>> {
-
-    // iterate through vector
-    let start_string = "conf-start:";
-    let end_string = "conf-end:";
-    let regex_start = Regex::new(r"conf-start:.*").unwrap();
-    let regex_end = Regex::new(r"conf-end").unwrap();
-
-    let mut collection: Vec<structures::Config> = Vec::new();
-    let mut conf_params: Vec<String>;
-    let mut found_start: bool = false;
-
-    for entry in &config_as_list{ 
-
-        if regex_start.is_match(entry.as_str()){
-            conf_params = Vec::new();
-            found_start = true;
-            println!("found start with {entry}");
-            // extracting type from string: 
-            let type_as_string = entry.replace(start_string, "");
-            let option_type = match type_as_string.as_str() { 
-                CONF_EXCLUDED_FILES => ConfigType::ExcludedPaths,
-                CONF_PREFIXES => ConfigType::PrefixHeadline,
-                _ => return Err(format!("no matching config-param was supplied {type_as_string}").into()),
-            };
-            // gathering params for given part
-            let rest_without_start: Vec<String> = config_as_list.split(|value| value == entry)
-            .nth(1)
-            .unwrap_or(&[])
-            .to_vec();
-
-            let resulting_confg = assemble_single_config(option_type, rest_without_start);
-            match resulting_confg{
-                Ok(config) => collection.push(config),
-                Err(e) => return Err(format!("error parsing config\n {e}").into())
-            }
-        }
-
-    }
-    println!("finished parsing config!");
-    Ok(collection)
-}
-
-fn parse_configuration() -> Result<Vec<Config>,Box<dyn Error>> { 
-
-    let path:PathBuf = PathBuf::from("/home/evelyn/Nextcloud/Notes/webpage_config.md");
-    let file_reader = read_from_file(path);
-
-    let blacklist = Regex::new(r"---.*|#.*|date-*|anchored.*|>.*|^\s*$").unwrap();
-    match file_reader {
-
-        Err(val) => Err(val), 
-
-        Ok(file_reader) => { 
-
-            let filtered_config: Vec<String> = file_reader.lines()
-                .filter_map(|line| match line { 
-                    Ok(line) => { 
-                        if !blacklist.is_match(&line) {
-                            Some(line)
-                        } else { 
-                            None 
-                        }
-                    }
-                    Err(e) => None,
-                })
-                .collect();
-            // processing filtered config!
-            let parsed_config = vec_to_config(filtered_config);
-            match parsed_config{
-                Ok(configurations) => return Ok(configurations),
-                Err(e) => return Err(format!("error converting, see: {e}").into())
-            };
-        }
-    }
-
 }
