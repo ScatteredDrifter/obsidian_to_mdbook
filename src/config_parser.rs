@@ -138,7 +138,7 @@ pub fn parse_configuration(file_buffer:BufReader<File>) -> Result<Vec<Config>,Bo
 /// HELPER FUNCTIONS
 /// ----
 
-pub fn print_config(configs: Vec<Config>) -> () { 
+pub fn print_config(configs: &Vec<Config>) -> () { 
     for config in configs{
 
         let as_string = match config.conf_type{
@@ -146,7 +146,7 @@ pub fn print_config(configs: Vec<Config>) -> () {
             ConfigType::PrefixHeadline => "headline prefixes"
         };
         println!("extracted config of type: {as_string}");
-        for entry in config.collection_of_options{
+        for entry in &config.collection_of_options{
             println!("-> {entry}");
         };
         println!();

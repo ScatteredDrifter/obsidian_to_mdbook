@@ -24,13 +24,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let configurations = wrapper_parse_config()?;
     // Debug 
-    print_config(configurations);
+    // only forwarding reference, because its not modifying / only visualizing
+
+    print_config(&configurations);
+    // filtering out configuration that handle excluded_dirs -> assuming multiple may exist
+    let filtered_dirs: Vec<String> = configurations
+    .iter()
+    .filter_map(|config| match config.conf_type {
+       ConfigType::ExcludedPaths => Some(config.collection_of_options.clone()),
+       _ => None,
+    })
+    .flatten() // reducing to one vector
+    .collect();
+
+    println!("retrieved the following params: ");
 
     let file_path = enforce_filepath(request_filepath);
     let save_path:PathBuf = enforce_filepath(request_file_to_save_to);
         
     // display_folder(&file_path);
-    let parsed_dir = collect_dir_structure(file_path, &None);
+    let parsed_dir = collect_dir_structure(file_path, &filtered_dirs, &None);
     match parsed_dir {
         Ok(dir) => {
             unwrap_directory(&dir,Some(1));
@@ -83,9 +96,22 @@ fn display_folder(proposed_path:&PathBuf) -> Result<(),Box<dyn std::error::Error
     Ok(())
     }
 
-fn collect_dir_structure(base_directory:PathBuf,parent_path:&Option<Box<PathBuf>>) -> Result<structures::Directory,Box<dyn std::error::Error>> {  
+fn contains_excluded_path(path: &Path,exclusion: &Vec<String>) -> bool {
+    for component in path.components(){
+        if let Some(component_str) = component.as_os_str().to_str(){
+            if exclusion.contains(&component_str.to_string()){
+                return true
+            }
+        }
+    }
+    return false
+}
+
+fn collect_dir_structure(base_directory:PathBuf,excluded_dirs:&Vec<String>,parent_path:&Option<Box<PathBuf>>) -> Result<structures::Directory,Box<dyn std::error::Error>> {  
     // traversing the given Directory extracting information per subdir
     // assumes a correct path provided
+    let parsed_path = Path::new(&base_directory);
+
 
     // initializing object for given directory
     let mut current_dir: structures::Directory = structures::Directory{
@@ -100,23 +126,24 @@ fn collect_dir_structure(base_directory:PathBuf,parent_path:&Option<Box<PathBuf>
         files: Vec::new()
     };
 
-    let parsed_path = Path::new(&base_directory);
-    let entries = fs::read_dir(parsed_path)?;
-    for entry in entries{
+    let dirs = fs::read_dir(parsed_path)?;
+    for entry in dirs{
         // traversing each entry
-        let file = entry?;
-        let file_path = file.path();
+        let directory = entry?;
+        let file_path = directory.path();
+        if contains_excluded_path(&file_path.as_path(), &excluded_dirs){
+            continue;
+        }
 
         // in case a directory is found, we add those to our structure at the end 
 
-        if file_path.is_dir(){
+        if file_path.is_dir() {
             let new_base = Some(Box::new(base_directory.clone()));
-            match collect_dir_structure(file_path.clone(),&new_base) {
+            match collect_dir_structure(file_path.clone(),excluded_dirs,&new_base) {
                 Ok(dir) => current_dir.sub_directories.push(dir),
                 Err(error) => println!("error while processing sub_directory, with following error \n {error}"),
             };
         };
-
 
         // in case a file was found
         // storing file in new struct
