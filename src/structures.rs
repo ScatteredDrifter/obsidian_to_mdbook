@@ -10,7 +10,8 @@ pub struct Directory {
 
     pub path: PathBuf,
     pub name: String,
-    pub parent: Option<Box<PathBuf>>,
+    pub dest_path: PathBuf,
+    pub relative_path: PathBuf,
     pub sub_directories:Vec<Directory>,
     pub files:Vec<FileData>,
 }
@@ -19,7 +20,9 @@ pub struct Directory {
 /// denotes a file and its associated infomrmation
 /// 
 pub struct FileData {
-    pub path: PathBuf,
+    pub original_path: PathBuf,
+    pub dest_path: PathBuf,
+    pub relative_path: PathBuf,
     pub extension: FileExtension,
     pub name:String
 }
@@ -31,6 +34,12 @@ pub enum FileExtension {
     Pdf,
     Unknown
 
+}
+
+pub struct CollectedPaths {
+    pub root_dir: PathBuf,
+    pub dest_dir: PathBuf,
+    pub dest_file: PathBuf
 }
 
 /// FIXME --> Unkown is rather ambigous and prone to produce errors 
