@@ -2,21 +2,20 @@
 pub mod structures;
 pub mod config_parser;
 
-use structures::{Config, ConfigType};
+use structures::{Config, ConfigType, Directory, FileExtension,fileextension_to_string,string_to_fileextension};
 use config_parser::{parse_configuration,print_config};
 
 use std::error::Error;
 // external import
 use std::ffi::OsStr;
 // use std::fmt::format;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self,BufReader, Write};
 // use std::thread::current;
 // use std::fmt::Error;
 // importing filesystem 
-use std::{fs, option, result};
+use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use regex::Regex;
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(dir) => {
             unwrap_directory(&dir,Some(1));
             let presentation:String = create_book_summary(dir);
-            println!("{}",presentation);
+            // println!("{}",presentation);
             match save_to_file(save_path, presentation) {
                 Ok(content) => (),
                 Err(error) => println!("{error}")
@@ -107,6 +106,23 @@ fn contains_excluded_path(path: &Path,exclusion: &Vec<String>) -> bool {
     return false
 }
 
+/// takes Directory checks whether any .md file is contained in top-level folder 
+/// returns True if one was found 
+/// false otherwise
+fn contains_md_file(directory:&Directory) -> bool { 
+    for file in &directory.files{
+        let extension  = &file.extension;
+        match extension{
+            FileExtension::Markdown=> return true,
+            _ => {}
+        };
+    }
+    return false;
+
+
+}
+
+
 fn collect_dir_structure(base_directory:PathBuf,excluded_dirs:&Vec<String>,parent_path:&Option<Box<PathBuf>>) -> Result<structures::Directory,Box<dyn std::error::Error>> {  
     // traversing the given Directory extracting information per subdir
     // assumes a correct path provided
@@ -153,6 +169,8 @@ fn collect_dir_structure(base_directory:PathBuf,excluded_dirs:&Vec<String>,paren
             .and_then(OsStr::to_str)
             .unwrap_or("")
             .to_string();
+            println!("given extension: {extension}");
+            let as_file_extension = string_to_fileextension(&extension);
 
             let name:String = file_path.file_name()
             .and_then(|name| name.to_str())
@@ -162,7 +180,7 @@ fn collect_dir_structure(base_directory:PathBuf,excluded_dirs:&Vec<String>,paren
                 {
                     name: name,
                     path: file_path,
-                    extension: extension, 
+                    extension: as_file_extension, 
                 }
             );
         };
@@ -224,7 +242,7 @@ fn extract_file_representation_from_dir(active_dir:&structures::Directory,depth:
     return dir_as_string
 }
 
-/// converts a Directory to string 
+/// converts a Directory to string representation of its files 
 /// depth denotes depth of headline to set -> indentation
 fn stringify_directory(dir:&structures::Directory,depth:usize, excluded_files:Option<Vec<String>>) -> String {
     // given a directory 
@@ -239,14 +257,19 @@ fn stringify_directory(dir:&structures::Directory,depth:usize, excluded_files:Op
     );
     // traversing each file and directory
     let mut resulting_string = String::new();
+    // only pushing headline if the folder is not empty!
+    if contains_md_file(dir){ 
+        resulting_string.push_str(&headline);
+    };
 
     for file in  &dir.files{
         // skipping if extension is mismatching
-        let file_extension = file.extension.as_str();
+        let file_extension = &file.extension;
+        let as_string = fileextension_to_string(&file_extension);
         // print!("extension of file: {file_extension}\n");
-        match file.extension.as_str() {
-            "md" => {
-                print!("extension of file: {file_extension}\n");
+        match file.extension {
+            FileExtension::Markdown => {
+                print!("extension of file: {as_string}\n");
                 let file_link:String = format!("{} - [{}]({})\n", " ".repeat(depth), file.name,file.path.display());
                 resulting_string.push_str(&file_link)
                 },

@@ -20,8 +20,43 @@ pub struct Directory {
 /// 
 pub struct FileData {
     pub path: PathBuf,
-    pub extension: String,
+    pub extension: FileExtension,
     pub name:String
+}
+
+pub enum FileExtension {
+    Markdown,
+    Html,
+    Image,
+    Pdf,
+    Unknown
+
+}
+
+/// FIXME --> Unkown is rather ambigous and prone to produce errors 
+pub fn fileextension_to_string(extension:&FileExtension) -> String {
+    match extension{
+        FileExtension::Html => ".html".to_string(),
+        FileExtension::Image => ".jpg".to_string(),
+        FileExtension::Markdown => ".md".to_string(),
+        FileExtension::Pdf => ".pdf".to_string(),
+        FileExtension::Unknown => ".unknown".to_string(),
+    }
+}
+
+/// takes extension as string and converts to FileExtension Struct
+/// attention: each string is prefixed with a "." and has to be 
+/// FIXME --> Unkown is rather ambigous and prone to produce errors 
+pub fn string_to_fileextension(value:&String) -> FileExtension { 
+    match value.as_str() {
+        "md" => FileExtension::Markdown,
+        "pdf" => FileExtension::Pdf,
+        "html" => FileExtension::Html,
+        "jpg" => FileExtension::Image,
+        "png" => FileExtension::Image,
+        _ => FileExtension::Unknown
+
+    }
 }
 
 // Structures for Config parsing
