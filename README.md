@@ -4,4 +4,10 @@ This project aims to help me learn rust further and provide a mean to update my 
 
 ---
 
+### TODO:
+
+- (maybe) have context sensitive prefixes for headlines
+- adapt paths given to **new** base-directory (after all they should be copied to the corresponding md-book structure src/)
+- use rsync to copy all collected files accordingly.
+
 I'm trying x)
