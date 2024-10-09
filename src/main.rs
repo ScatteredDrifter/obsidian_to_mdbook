@@ -237,6 +237,11 @@ fn collect_dir_structure(
             .unwrap_or("")
             .to_owned();
 
+            if name.contains(" "){
+                // found whitespace in path, aborting
+                continue;
+            }
+
             let trimmed_path = remove_path_prefix(&file_path,&root_path)?;
             let destination_path_file =create_dest_path( &trimmed_path,&dest_path);
             current_dir.files.push(structures::FileData 
@@ -315,7 +320,8 @@ fn stringify_directory(dir:&structures::Directory,depth:usize) -> String {
     // creating headline for given directory -> taking only its name
     let headline:String = format!(
         "{} {}\n",
-        "#".repeat(depth),
+        "#",
+        // "#".repeat(depth),
         dir.name 
     );
     // traversing each file and directory
@@ -330,7 +336,7 @@ fn stringify_directory(dir:&structures::Directory,depth:usize) -> String {
         let file_extension = &file.extension;
         match file.extension {
             FileExtension::Markdown => {
-                let file_link:String = format!("{} - [{}]({})\n", " ".repeat(depth), file.name,file.relative_path.display());
+                let file_link:String = format!("- [{}]({})\n",file.name,file.relative_path.display());
                 resulting_string.push_str(&file_link)
                 },
             _ => {},
