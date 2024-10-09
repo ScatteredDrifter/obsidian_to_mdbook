@@ -40,6 +40,7 @@ const CONFIG_START: &str = "conf-start:";
 const CONFIG_END: &str =  "conf-end:";
 const CONF_EXCLUDED_FILES: &str = "excluded_directories";
 const CONF_PREFIXES: &str = "prefixes_for_headlines";
+const CONF_COLLECTED_PATHS: &str = "copy_paths";
 
 /// --- 
 /// CORE FUNCTIONS
@@ -74,23 +75,19 @@ fn vec_to_config(config_as_list:Vec<String>) -> Result<Vec<Config>,Box<dyn Error
 
     // iterate through vector
     let regex_start = Regex::new(r"conf-start:.*").unwrap();
-    let regex_end = Regex::new(r"conf-end").unwrap();
 
     let mut collection: Vec<Config> = Vec::new();
-    let mut conf_params: Vec<String>;
-    let mut found_start: bool = false;
 
     for entry in &config_as_list{ 
 
         if regex_start.is_match(entry.as_str()){
-            conf_params = Vec::new();
-            found_start = true;
             println!("found start with {entry}");
             // extracting type from string: 
             let type_as_string = entry.replace(CONFIG_START, "");
             let option_type = match type_as_string.as_str() { 
                 CONF_EXCLUDED_FILES => ConfigType::ExcludedPaths,
                 CONF_PREFIXES => ConfigType::PrefixHeadline,
+                CONF_COLLECTED_PATHS => ConfigType::CollectedPaths,
                 _ => return Err(format!("no matching config-param was supplied {type_as_string}").into()),
             };
             // gathering params for given part
@@ -111,6 +108,10 @@ fn vec_to_config(config_as_list:Vec<String>) -> Result<Vec<Config>,Box<dyn Error
     Ok(collection)
 }
 
+/// iterates through File, parses Configs and returns them as Vector
+/// everything matching the following RegEx is not traversed and ignored:
+/// Blacklist "---.*|#.*|date-*|anchored.*|>.*|^\s*$"
+/// 
 pub fn parse_configuration(file_buffer:BufReader<File>) -> Result<Vec<Config>,Box<dyn Error>> { 
 
     let blacklist = Regex::new(r"---.*|#.*|date-*|anchored.*|>.*|^\s*$").unwrap();
@@ -123,7 +124,7 @@ pub fn parse_configuration(file_buffer:BufReader<File>) -> Result<Vec<Config>,Bo
                     None 
                 }
             }
-            Err(e) => None,
+            Err(_) => None,
         })
         .collect();
     // processing filtered config!
@@ -143,7 +144,8 @@ pub fn print_config(configs: &Vec<Config>) -> () {
 
         let as_string = match config.conf_type{
             ConfigType::ExcludedPaths => "Excluded paths",
-            ConfigType::PrefixHeadline => "headline prefixes"
+            ConfigType::PrefixHeadline => "headline prefixes",
+            ConfigType::CollectedPaths => "paths to copy to"
         };
         println!("extracted config of type: {as_string}");
         for entry in &config.collection_of_options{

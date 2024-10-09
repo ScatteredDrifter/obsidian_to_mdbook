@@ -2,7 +2,7 @@
 /// 
 
 // external imports
-use std::path::{Path,PathBuf};
+use std::path::PathBuf;
 
 /// denotes a directory holding information about it 
 /// contains all sub-dirs and files as vector 
@@ -77,4 +77,5 @@ pub struct Config {
 pub enum ConfigType {
     ExcludedPaths,
     PrefixHeadline,
+    CollectedPaths
 }

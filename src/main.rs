@@ -3,7 +3,7 @@ pub mod structures;
 pub mod config_parser;
 pub mod settings;
 
-use settings::{PATH_DEST, PATH_SOURCE, PATH_SUMMARY, PRINT_DEBUG, REQUEST_PATHS};
+use settings::{CONFIG_SOURCE, PATH_DEST, PATH_SOURCE, PATH_SUMMARY, PRINT_DEBUG, REQUEST_PATHS};
 use structures::{string_to_fileextension, CollectedPaths, Config, ConfigType, Directory, FileExtension};
 use config_parser::{parse_configuration,print_config};
 
@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match parsed_dir {
         Ok(dir) => {
-            visualize_directory(&dir,Some(1));
+            // visualize_directory(&dir,Some(1));
             let presentation:String = create_book_summary(&dir);
             // println!("{}",presentation);
             match save_to_file(&save_path, presentation) {
@@ -121,7 +121,7 @@ fn copy_directory_to_dest(base_dir:&Directory) -> () {
 /// 
 fn wrapper_parse_config() -> Result<Vec<Config>, Box<dyn Error>>{
 
-    let path:PathBuf = PathBuf::from("/home/evelyn/Nextcloud/Notes/webpage_config.md");
+    let path:PathBuf = PathBuf::from(CONFIG_SOURCE);
     let file_reader = read_from_file(&path)?;
     parse_configuration(file_reader)
 }
@@ -283,7 +283,7 @@ fn visualize_directory(given_directory:&structures::Directory,indent:Option<usiz
 /// uses structure for SUMMARY.md for mdbook
 fn create_book_summary(directory_data:&structures::Directory) -> String {
 
-    let directory_as_string:String = extract_file_representation_from_dir(&directory_data, 0);
+    let directory_as_string:String = extract_file_representation_from_dir(&directory_data);
     // print!("{directory_as_string}");
     let basic_formatting:String = format!("# SUMMARY.MD Structure\n\n{} ",directory_as_string);
     // for entry in directory_data.files
@@ -292,18 +292,18 @@ fn create_book_summary(directory_data:&structures::Directory) -> String {
 
 /// traverses Directory instance, converts to string complying for summary of mdbooks
 /// IMPORTANT: Conceptualized as _recursive function_
-fn extract_file_representation_from_dir(active_dir:&structures::Directory,depth:usize) -> String {
+fn extract_file_representation_from_dir(active_dir:&structures::Directory) -> String {
 
     let mut dir_as_string:String = String::new();
 
     // traversing and processing the active directory
-    let stringified_dir: String = stringify_directory(&active_dir, depth);
+    let stringified_dir: String = stringify_directory(&active_dir);
 
     dir_as_string.push_str(&stringified_dir);
 
     // traversing all subsequent directories
     for directory in &active_dir.sub_directories {
-        let dir_string = extract_file_representation_from_dir(&directory, depth+1);
+        let dir_string = extract_file_representation_from_dir(&directory);
         dir_as_string.push_str(&dir_string);
     }
 
@@ -312,7 +312,7 @@ fn extract_file_representation_from_dir(active_dir:&structures::Directory,depth:
 
 /// converts a Directory to string representation of its files 
 /// depth denotes depth of headline to set -> indentation
-fn stringify_directory(dir:&structures::Directory,depth:usize) -> String {
+fn stringify_directory(dir:&structures::Directory) -> String {
     // given a directory 
     // depth denotes depth of headline to set 
     // 
