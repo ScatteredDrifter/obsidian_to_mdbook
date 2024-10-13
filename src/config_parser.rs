@@ -38,7 +38,8 @@ use regex::Regex;
 
 const CONFIG_START: &str = "conf-start:";
 const CONFIG_END: &str =  "conf-end:";
-const CONF_EXCLUDED_FILES: &str = "excluded_directories";
+const CONF_EXCLUDED_FILES: &str = "excluded_files";
+const CONF_INCLUDED_DIRECTORIES: &str = "included_directories";
 const CONF_PREFIXES: &str = "prefixes_for_headlines";
 const CONF_COLLECTED_PATHS: &str = "copy_paths";
 
@@ -85,7 +86,8 @@ fn vec_to_config(config_as_list:Vec<String>) -> Result<Vec<Config>,Box<dyn Error
             // extracting type from string: 
             let type_as_string = entry.replace(CONFIG_START, "");
             let option_type = match type_as_string.as_str() { 
-                CONF_EXCLUDED_FILES => ConfigType::ExcludedPaths,
+                CONF_EXCLUDED_FILES => ConfigType::ExcludedFiles,
+                CONF_INCLUDED_DIRECTORIES => ConfigType::IncludedDirectories,
                 CONF_PREFIXES => ConfigType::PrefixHeadline,
                 CONF_COLLECTED_PATHS => ConfigType::CollectedPaths,
                 _ => return Err(format!("no matching config-param was supplied {type_as_string}").into()),
@@ -143,7 +145,8 @@ pub fn print_config(configs: &Vec<Config>) -> () {
     for config in configs{
 
         let as_string = match config.conf_type{
-            ConfigType::ExcludedPaths => "Excluded paths",
+            ConfigType::ExcludedFiles => "Excluded files",
+            ConfigType::IncludedDirectories => "included directories",
             ConfigType::PrefixHeadline => "headline prefixes",
             ConfigType::CollectedPaths => "paths to copy to"
         };

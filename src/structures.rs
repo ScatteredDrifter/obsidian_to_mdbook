@@ -75,7 +75,8 @@ pub struct Config {
 }
 
 pub enum ConfigType {
-    ExcludedPaths,
+    IncludedDirectories,
+    ExcludedFiles,
     PrefixHeadline,
     CollectedPaths
 }

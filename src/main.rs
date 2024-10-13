@@ -26,14 +26,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // filtering out configuration that handle excluded_dirs 
     //IMPORTANT: assuming multiple may exist
-    let filtered_dirs: Vec<String> = configurations
+    let blacklisted_files: Vec<String> = configurations
     .iter()
     .filter_map(|config| match config.conf_type {
-       ConfigType::ExcludedPaths => Some(config.collection_of_options.clone()),
+       ConfigType::ExcludedFiles => Some(config.collection_of_options.clone()),
        _ => None,
     })
     .flatten() // reducing to one vector
     .collect();
+
+    let whitelisted_directories: Vec<String> = configurations
+    .iter()
+    .filter_map(|config| match config.conf_type {
+        ConfigType::IncludedDirectories => Some(config.collection_of_options.clone()),
+        _ => None,
+    })
+    .flatten()
+    .collect();
+
 
     let paths: CollectedPaths = request_paths();
     let root_path = paths.root_dir;
@@ -46,7 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // display_folder(&file_path);
     let parsed_dir = collect_dir_structure(
         &root_path,
-        &filtered_dirs,
+        &whitelisted_directories,
+        &blacklisted_files,
         &copy_directory,
         &root_path,
         );
@@ -126,12 +137,23 @@ fn wrapper_parse_config() -> Result<Vec<Config>, Box<dyn Error>>{
     parse_configuration(file_reader)
 }
 
-fn contains_excluded_path(path: &Path,exclusion: &Vec<String>) -> bool {
-    for component in path.components(){
-        if let Some(component_str) = component.as_os_str().to_str(){
-            if exclusion.contains(&component_str.to_string()){
-                return true
+/// checks whether last dir in path is included in whitelist
+/// returns false otherwise
+fn contains_included_directory(path: &Path,whitelist: &Vec<String>) -> bool {
+    if let Some(last_component) = path.components().last() {
+        if let Some(component_str) = last_component.as_os_str().to_str() {
+            if whitelist.contains(&component_str.to_string()) {
+                return true;
             }
+        }
+    }
+    return false
+}
+
+fn contains_excluded_file_string(string_to_compare: &String,exclusion:&Vec<String>) -> bool {
+    for word in exclusion { 
+        if string_to_compare.contains(word){
+            return true 
         }
     }
     return false
@@ -182,7 +204,8 @@ fn create_dest_path(trimmed_base_path:&PathBuf,dest_root_path:&PathBuf) -> PathB
 /// FIXME reduce complexity, refactor to collection of functions
 fn collect_dir_structure(
     base_directory:&PathBuf,
-    excluded_dirs:&Vec<String>,
+    whitelisted_directories:&Vec<String>,
+    blacklisted_files:&Vec<String>,
     dest_path:&PathBuf,
     root_path:&PathBuf) -> Result<structures::Directory,Box<dyn std::error::Error>> {  
     // traversing the given Directory extracting information per subdir
@@ -209,14 +232,14 @@ fn collect_dir_structure(
         // traversing each entry
         let directory = entry?;
         let file_path = directory.path();
-        if contains_excluded_path(&file_path.as_path(), &excluded_dirs){
-            continue;
-        }
-
         // in case a directory is found, we add those to our structure at the end 
 
         if file_path.is_dir() {
-            match collect_dir_structure(&file_path,excluded_dirs,dest_path,root_path) {
+ 
+        if !contains_included_directory(&file_path.as_path(), &whitelisted_directories){
+            continue;
+        }
+           match collect_dir_structure(&file_path,whitelisted_directories,blacklisted_files,dest_path,root_path) {
                 Ok(dir) => current_dir.sub_directories.push(dir),
                 Err(error) => println!("error while processing sub_directory, with following error \n {error}"),
             };
@@ -236,8 +259,8 @@ fn collect_dir_structure(
             .and_then(|name| name.to_str())
             .unwrap_or("")
             .to_owned();
-
-            if name.contains(" "){
+            // FIXME skip pdfs as well
+            if name.contains(" ") || contains_excluded_file_string(&name, &blacklisted_files){
                 // found whitespace in path, aborting
                 continue;
             }
@@ -311,11 +334,7 @@ fn extract_file_representation_from_dir(active_dir:&structures::Directory) -> St
 }
 
 /// converts a Directory to string representation of its files 
-/// depth denotes depth of headline to set -> indentation
 fn stringify_directory(dir:&structures::Directory) -> String {
-    // given a directory 
-    // depth denotes depth of headline to set 
-    // 
 
     // creating headline for given directory -> taking only its name
     let headline:String = format!(
@@ -333,7 +352,6 @@ fn stringify_directory(dir:&structures::Directory) -> String {
 
     for file in  &dir.files{
         // skipping if extension is mismatching
-        let file_extension = &file.extension;
         match file.extension {
             FileExtension::Markdown => {
                 let file_link:String = format!("- [{}]({})\n",file.name,file.relative_path.display());
@@ -379,8 +397,6 @@ fn request_copy_path() -> Result<PathBuf, Box<dyn Error>> {
     request_valid_path(false,false)
 }
 
-/// requests path for storing file 
-/// prints "enter a filepath for {prompt}" 
 fn request_save_file() -> Result<PathBuf,Box<dyn Error>> { 
     println!("\nenter a path to save to");
     request_valid_path(true,false)
